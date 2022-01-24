@@ -1,55 +1,78 @@
+name: Build Docker Images
 
-name: Continuous Integration
-
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
-  tests:
+  build:
     runs-on: ubuntu-latest
-    services:
-      testdb:
-        image: mysql:5.7
-        env:
-          MYSQL_DATABASE: "testdb"
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_ROOT_PASSWORD: "forge"
-          MYSQL_USER: "forge"
-          MYSQL_PASSWORD: "forge"
-          MYSQL_ROOT_HOST: "%"
-        ports:
-          - 3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
       - uses: actions/checkout@v1
-      - name: Copy .env
-        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
-      - name: Install Dependencies
-        run: |
-          composer update --ignore-platform-reqs
-          cd bootstrap/cache/
-          rm -rf *.php
-          composer install -q --no-ansi --no-interaction --no-scripts --no-suggest --no-progress --prefer-dist
-      - name: Generate key
-        run: php artisan key:generate
-      - name: Execute tests
+      - name: Get release version
+        id: get_version
+        run: echo ::set-env name=RELEASE_NAME::$(echo ${GITHUB_SHA:0:7})
+      - name: Publish PHP image to Registry
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: tonysm/docker4laravelapp-php
+          dockerfile: .docker/php/prod.Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          tags: "latest,${{ env.RELEASE_NAME }}"
+      - name: Publish Nginx image to Registry
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: tonysm/docker4laravelapp-nginx
+          dockerfile: .docker/nginx/prod.Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          tags: "latest,${{ env.RELEASE_NAME }}"
+      - name: Patch new image on infrastructure
         env:
-          DB_CONNECTION: mysql
-          DB_HOST: "db"
-          DB_PORT: ${{ job.services.testdb.ports['3306'] }}
-          DB_DATABASE: "mysql"
-          DB_PASSWORD: ""
-          DB_USERNAME: "root"
-        run: vendor/bin/phpunit
-
-          DB_CONNECTION: "mysql"
-          DB_HOST: db
-          DB_PORT: "3306"
-          DB_DATABASE: "mysql"
-          DB_PASSWORD: ""
-          DB_USERNAME: "root"
-
-
-
-
-
-        
+          RELEASE_VERSION: ${{ env.RELEASE_NAME }}
+          GIT_EMAIL: ${{ secrets.GIT_EMAIL }}
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+          GITHUB_NAME: 'Automated from Github Actions'
+          GITHUB_PASSWORD: ${{ secrets.GIT_TOKEN }}
+          GIT_REPO: "tonysm/dockerforlaravel-k8s-files"
+        run: |
+          set -e
+          # Installs Kustomize
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          chmod +x ./kustomize && sudo mv ./kustomize /usr/local/bin/kustomize
+          # Install HUB CLI tool
+          curl -LO https://github.com/github/hub/releases/download/v2.11.2/hub-linux-amd64-2.11.2.tgz
+          tar -zxf hub-linux-amd64-2.11.2.tgz
+          cd hub-linux-amd64-2.11.2
+          sudo ./install
+          hub --version
+          cd .. && rm -rf hub-linux-amd64-2.11.2/ hub-linux-amd64-2.11.2.tgz
+          # Configuring Git
+          git config --global credential.helper store
+          echo "https://${GITHUB_TOKEN}:x-oauth-basic@github.com" > "${HOME}/.git-credentials"
+          hub config --global hub.protocol https
+          # Cloning the infrastructure repository
+          hub clone ${GIT_REPO} infrastructure-repo
+          cd infrastructure-repo
+          # Create a new branch for the release
+          git checkout -b release-${RELEASE_VERSION}
+          # Patch the new version using kustomize
+          kustomize edit set image laravel-app-php=tonysm/docker4laravelapp-php:${RELEASE_VERSION}
+          kustomize edit set image laravel-app-nginx=tonysm/docker4laravelapp-nginx:${RELEASE_VERSION}
+          # Add the changes to the infrastructure repository
+          if [[ `git status --porcelain` ]]; then
+            hub config --global user.name "${GITHUB_NAME}"
+            hub config --global user.email "${GIT_EMAIL}"
+            # Adds the kustomization file to git stage
+            hub add kustomization.yml
+            hub commit -F- <<EOF
+          Auto-release of the image version
+          This commit updates the application container image version to: ${RELEASE_VERSION}
+          EOF
+            # Create the PR in the infrastructure repository
+            hub pull-request -p -m "Auto-release of image version: ${RELEASE_VERSION}"
+          else
+            echo "Everything is up-to-date"
+          fi
