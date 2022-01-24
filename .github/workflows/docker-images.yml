@@ -12,21 +12,9 @@ jobs:
       - uses: actions/checkout@v1
       - name: Get release version
         id: get_version
+      - name: ACTIONS_ALLOW_UNSECURE_COMMANDS
+        run: echo 'ACTIONS_ALLOW_UNSECURE_COMMANDS=true' >> $GITHUB_ENV
         run: echo ::set-env name=RELEASE_NAME::$(echo ${GITHUB_SHA:0:7})
-
-            - name: "Set flag from Commit"
-        id: step_one
-        env:
-          COMMIT_VAR: ${{ contains(github.event.head_commit.message, '[commit var]') }}
-        run: |
-          if ${COMMIT_VAR} == true; then
-            echo "action_state=true" >> $GITHUB_ENV
-            echo "flag set to true"
-          else
-            echo "action_state=false" >> $GITHUB_ENV
-            echo "flag set to false"
-          fi
-
       - name: Publish PHP image to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
