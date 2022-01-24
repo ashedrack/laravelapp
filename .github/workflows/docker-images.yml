@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v1.2.6
       - name: Get release version
         id: get_version
       - name: ACTIONS_ALLOW_UNSECURE_COMMANDS
