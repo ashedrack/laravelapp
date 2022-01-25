@@ -18,7 +18,7 @@ jobs:
       - name: Publish PHP image to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: ashedrack/docker-laravelapp_php-v1
+          name: ashedrack/dockerlaravelphp
           dockerfile: .docker/php/prod.Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -26,7 +26,7 @@ jobs:
       - name: Publish Nginx image to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: ashedrack/docker-laravelapp_nginx-v1
+          name: ashedrack/dockerlaravelnginx
           dockerfile: .docker/nginx/prod.Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -55,14 +55,15 @@ jobs:
           git config --global credential.helper store
           echo "https://${GITHUB_TOKEN}:x-oauth-basic@github.com" > "${HOME}/.git-credentials"
           hub config --global hub.protocol https
+
           # Cloning the infrastructure repository
           hub clone ${GIT_REPO} infrastructure-repo
           cd infrastructure-repo
           # Create a new branch for the release
           git checkout -b release-${RELEASE_VERSION}
           # Patch the new version using kustomize
-          kustomize edit set image laravel-app-php=ashedrack/dockerlaravelappphp-v1:${RELEASE_VERSION}
-          kustomize edit set image laravel-app-nginx=ashedrack/dockerlaravelappnginx-v1:${RELEASE_VERSION}
+          kustomize edit set image laravel-app-php=ashedrack/dockerlaravelphp:${RELEASE_VERSION}
+          kustomize edit set image laravel-app-nginx=ashedrack/dockerlaravelnginx:${RELEASE_VERSION}
           # Add the changes to the infrastructure repository
           if [[ `git status --porcelain` ]]; then
             hub config --global user.name "${GITHUB_NAME}"
