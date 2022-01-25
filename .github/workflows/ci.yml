@@ -18,7 +18,7 @@ jobs:
       - name: Publish PHP image to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: docker.io/ashedrack/dockerlaravelphp
+          name: ashedrack/dockerlaravelphp
           dockerfile: .docker/php/prod.Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -26,7 +26,7 @@ jobs:
       - name: Publish Nginx image to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: docker.io/ashedrack/dockerlaravelnginx
+          name: ashedrack/dockerlaravelnginx
           dockerfile: .docker/nginx/prod.Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
