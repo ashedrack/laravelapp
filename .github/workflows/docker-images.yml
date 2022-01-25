@@ -38,7 +38,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
           GITHUB_NAME: 'Automated from Github Actions'
           GITHUB_PASSWORD: ${{ secrets.GIT_TOKEN }}
-          GIT_REPO: "tonysm/dockerforlaravel-k8s-files"
+          GIT_REPO: "https://github.com/ashedrack/laravel-docker-infra-deploy"
         run: |
           set -e
           # Installs Kustomize
