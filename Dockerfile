@@ -18,3 +18,6 @@ RUN groupadd --gid 1000 appuser \
      --create-home appuser
 
 USER appuser
+
+
+
